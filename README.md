@@ -1,3 +1,7 @@
+12/30(목) 오후 3시 Zoom 회의 url : https://us02web.zoom.us/j/4564560061?pwd=cG5mZ1lpV3BHVWJtREZnVExTenR1UT09
+모델링: http://www.msaez.io/#/storming/7lxGQRX7nlT2tN40ZhKmJX7Lfrz2/every/79559bcd433a31d6b54d5ffca0f9705b
+
+
 # 도서대여시스템
 
 Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한 계획단계부터 분석/설계/구현/운영까지의 프로젝트를 관리함
