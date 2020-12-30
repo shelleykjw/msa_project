@@ -1,6 +1,6 @@
 12/30(목) 오후 3시 Zoom 회의 url : https://us02web.zoom.us/j/4564560061?pwd=cG5mZ1lpV3BHVWJtREZnVExTenR1UT09
 모델링: http://www.msaez.io/#/storming/7lxGQRX7nlT2tN40ZhKmJX7Lfrz2/every/79559bcd433a31d6b54d5ffca0f9705b
-
+12/30(목) 오후 3시 Zoom 회의 url2: https://us02web.zoom.us/j/4564560162?pwd=cG5mZ1lpV3BHVWJtREZnVExTenR1UT09
 
 # 도서대여시스템
 
