@@ -289,6 +289,22 @@ Kafka 이력
 {"eventType":"Canceled","timestamp":"20210223233316","id":1,"productId":null,"statusCode":null,"me":true}
 
 
+delivery 상태
+{
+    "_links": {
+        "delivery": {
+            "href": "http://localhost:8082/deliveries/1"
+        }, 
+        "self": {
+            "href": "http://localhost:8082/deliveries/1"
+        }
+    }, 
+    "orderId": 1, 
+    "productId": null, 
+    "statusCode": 3
+}
+
+
 ```
 
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 결제 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
