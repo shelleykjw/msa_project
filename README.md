@@ -233,31 +233,62 @@ spring:
 - 결제서비스를 호출하기 위하여 Stub과 (FeignClient) 를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현 
 
 ```
-DeliveryService.java
-
 @FeignClient(name="delivery", url="http://localhost:8082")
 public interface DeliveryService {
-
     @RequestMapping(method= RequestMethod.POST, path ="/deliveries")
     public void cancel(@RequestBody Delivery delivery);
-
 }
 
 ```
 
 - 주문을 받은 직후(@PostPersist) 결제를 요청하도록 처리
 ```
-# Order.java (Entity)
-
-    @PostPersist
-    public void onPostPersist(){
+# Reservation.java (Entity)
+    @PreUpdate
+    public void onPreUpdate() throws Exception{
         Canceled canceled = new Canceled();
         BeanUtils.copyProperties(this, canceled);
         canceled.publishAfterCommit();
-  
-        ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(3L);
-  
+
+        //Delivery delivery = new Delivery();
+        book.external.Delivery delivery = new book.external.Delivery();
+
+        delivery.setId(getId()); //reservation Id
+        delivery.setOrderId(getId()); //reservation Id
+        delivery.setProductId(getProductId());
+        delivery.setStatusCode(3);
+
+       ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(delivery);
+
+       System.out.println("##### TEST 2 : " + delivery.getStatusCode());
+
+       if(delivery.getStatusCode() == 3){
+            
+       }
+
+
     }
+```
+```
+
+예약 취소시 cancel 호출
+
+##### TEST 2 : 3
+Hibernate: 
+    update
+        reservation_table 
+    set
+        product_id=?,
+        status_code=? 
+    where
+        id=?
+
+Kafka 이력
+{"eventType":"Canceled","timestamp":"20210223233224","id":1,"productId":null,"statusCode":null,"me":true}
+{"eventType":"Canceled","timestamp":"20210223233305","id":1,"productId":1,"statusCode":2,"me":true}
+{"eventType":"Canceled","timestamp":"20210223233316","id":1,"productId":null,"statusCode":null,"me":true}
+
+
 ```
 
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 결제 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
