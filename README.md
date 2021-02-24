@@ -91,9 +91,16 @@ Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한
   ![image](https://user-images.githubusercontent.com/487999/79684159-3543c700-826a-11ea-8d5f-a3fc0c4cad87.png)
 
 ## Event Storming 결과
-
-![v2](https://user-images.githubusercontent.com/57124820/108931766-90fd8e80-768b-11eb-8d0a-e77ba14ff280.png)
 * MSAEZ 모델링 이벤트스토밍 결과:
+* Revision 1
+  - 주문(order)/배송(delivery)/상품(product)로 Bounded Context 설정
+  - 주문에서 event별 상태값을 포함한 트랜젝션 중심로직을 설정하고 product에서 전체 재고 수량을 관리
+![v2](https://user-images.githubusercontent.com/57124820/108931766-90fd8e80-768b-11eb-8d0a-e77ba14ff280.png)
+* MSAEZ 모델링 이벤트스토밍 최종 결과:
+  - 예약(reservation)/배송(delivery)/상품(product)/개인화면(myPage)로 Bounded Context 설정
+  - 주문의 자연어 뜻이 혼동되어 예약으로 변경하고, 기존 주문에 집중된 로직을 분리함
+  - 전체 상품의 배송상태를 취합하여 조회가능한 myPage 신설
+  - 상품은 기본적인 수량변동만 취합
 http://www.msaez.io/#/storming/mE0rA9pV1tPfOibSknVbRBhRqkY2/every/ccf36caac98aab7713fb43c28040d31f
 
 <img width="658" alt="스크린샷 2021-02-24 오전 2 10 08" src="https://user-images.githubusercontent.com/34236968/108880349-8ddfaf80-7645-11eb-9b80-b7737dd1896c.png">
