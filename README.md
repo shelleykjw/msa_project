@@ -407,24 +407,122 @@ hystrix:
 
 ### 오토스케일 아웃
 
+HPA TARGET <unknown>/10% 이슈가 있었으나 resouces 제한을 걸면 가능 - 트러블슈팅
+  
 ```
-kubectl autoscale deploy pay --min=1 --max=7 --cpu-percent=4
+# deployment.yml - resourses limits 10 낮게 설정
+
+resources:
+requests:
+  cpu: "10m"
+limits:
+  cpu: "10m"
+              
+kubectl autoscale deploy pay --min=1 --max=10 --cpu-percent=10 # cpu-percent를 10%로 낮게 설정
+
+kubectl get hpa # HPA 확인 max 10으로 autoscale 확인
+# reservation   Deployment/reservation   107%/10%   1         10        10         17m
+
+kubectl get deploy -w # 모니터링 reservation이 max 10으로 autoscale 확인
+
+# NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+# delivery      1/1     1            1           16h
+# gateway       1/1     1            1           16h
+# mypage        1/1     1            1           16h
+# product       1/1     1            1           16h
+# reservation   10/10   10           10          13m
+# siege         1/1     1            1           15h
 ```
 
-- 1시간 부하 테스트
+### readiness probe
+```
+# deployment.yml - 유효하지 않은 path 설정
+readinessProbe:
+  httpGet:
+    path: '/test'
+    port: 8080
+  initialDelaySeconds: 10
+  timeoutSeconds: 2
+  periodSeconds: 5
+  failureThreshold: 10
+livenessProbe:
+  httpGet:
+    path: '/test'
+    port: 8080
+  initialDelaySeconds: 120
+  timeoutSeconds: 2
+  periodSeconds: 5
+  failureThreshold: 5
 
+# pod 확인 - RESTARTS 3회에 준비되지 않음 확인
+NAME                               READY   STATUS    RESTARTS   AGE
+pod/reservation-f64ff99c9-nk5lb    0/1     Running   3          7m55
+
+# describe 결과 - Warning  Unhealthy  4s (x21 over 104s)  kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Readiness probe failed: Get
+Name:         reservation-6c5db57c89-w44dv
+Namespace:    default
+Priority:     0
+Node:         ip-192-168-88-143.ap-northeast-2.compute.internal/192.168.88.143
+Start Time:   Wed, 24 Feb 2021 10:29:35 +0900
+Labels:       app=reservation
+              pod-template-hash=6c5db57c89
+Annotations:  kubernetes.io/psp: eks.privileged
+Status:       Running
+IP:           192.168.95.172
+IPs:
+  IP:           192.168.95.172
+Controlled By:  ReplicaSet/reservation-6c5db57c89
+Containers:
+  reservation:
+    Container ID:   docker://95b46bef2da5009fb4264636a21e72a72c9e4e781a6261d53c322af1f7cfb22b
+    Image:          496278789073.dkr.ecr.ap-northeast-2.amazonaws.com/skteam01-reservation:latest
+    Image ID:       docker-pullable://496278789073.dkr.ecr.ap-northeast-2.amazonaws.com/skteam01-reservation@sha256:90e3aa6c0f228e5aa80081bf0716775a2eaf144928a2686cda99dd7a56aed38d
+    Port:           8080/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Wed, 24 Feb 2021 10:29:40 +0900
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:  10m
+    Requests:
+      cpu:        10m
+    Liveness:     http-get http://:8080/products delay=120s timeout=2s period=5s #success=1 #failure=5
+    Readiness:    http-get http://:8080/products delay=10s timeout=2s period=5s #success=1 #failure=10
+    Environment:  <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-k8chh (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             False 
+  ContainersReady   False 
+  PodScheduled      True 
+Volumes:
+  default-token-k8chh:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-k8chh
+    Optional:    false
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type     Reason     Age                 From                                                        Message
+  ----     ------     ----                ----                                                        -------
+  Normal   Scheduled  2m                  default-scheduler                                           Successfully assigned default/reservation-6c5db57c89-w44dv to ip-192-168-88-143.ap-northeast-2.compute.internal
+  Normal   Pulling    117s                kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Pulling image "496278789073.dkr.ecr.ap-northeast-2.amazonaws.com/skteam01-reservation:latest"
+  Normal   Pulled     117s                kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Successfully pulled image "496278789073.dkr.ecr.ap-northeast-2.amazonaws.com/skteam01-reservation:latest"
+  Normal   Created    117s                kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Created container reservation
+  Normal   Started    115s                kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Started container reservation
+  Warning  Unhealthy  4s (x21 over 104s)  kubelet, ip-192-168-88-143.ap-northeast-2.compute.internal  Readiness probe failed: Get http://192.168.95.172:8080/products: dial tcp 192.168.95.172:8080: connect: connection refused
+
+```
+
+
+# 기타 - 시도한 것들..
+
+### 부하 테스트
 ```
 siege -c255 -t3600S -r10 --content-type "application/json" 'http://localhost:8081/reservations POST {"productId": 1, "statusCode": 1}'
 ```
-
-- autoscale 확인:
-```
-NAME        DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-reservation 1         1         1            1           3s
-reservation 1         2         1            1           1m
-:
-```
-
-## 무정지 재배포
-
-??
