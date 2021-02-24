@@ -247,32 +247,89 @@ spring:
 ```
 # DeliveryService.java
 
-@FeignClient(name="delivery", url="http://localhost:8082") // url="http://delivery:8080")
+@FeignClient(name="delivery", url="http://localhost:8082")
 public interface DeliveryService {
+
     @RequestMapping(method= RequestMethod.POST, path ="/deliveries")
     public void cancel(@RequestBody Delivery delivery);
 }
-
 ```
 
 - 취소 후(@PostPersist) 배송을 취소하도록 처리
 ```
 # Reservation.java
 
-    @PostPersist
-    public void onPostPersist(){
+  @PreUpdate
+    public void onPreUpdate() throws Exception{
         Canceled canceled = new Canceled();
         BeanUtils.copyProperties(this, canceled);
         canceled.publishAfterCommit();
 
-        Delivery delivery = new Delivery();
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
 
-        ReservationApplication.applicationContext.getBean(DeliveryService.class)
-            .cancel(delivery);
+        //Delivery delivery = new Delivery();
+        // mappings goes here
+        book.external.Delivery delivery = new book.external.Delivery();
+
+        delivery.setId(getId()); //reservation Id
+        delivery.setOrderId(getId()); //reservation Id
+        delivery.setProductId(getProductId());
+        delivery.setStatusCode(3);
+        Thread.sleep(2000);//2초 슬립
+       ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(delivery);
+
+       System.out.println("##### TEST 2 : " + delivery.getStatusCode());
+
+       if(delivery.getStatusCode() == 3){
+            
+       }
+
+
     }
 ```
+onPreUpdate 실행시 로그
+##### TEST 2 : 3
+Hibernate: 
+    update
+        reservation_table 
+    set
+        product_id=?,
+        status_code=? 
+    where
+        id=?
 
-- 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 배송 시스템이 장애가 나면 취소가 불가능한 것을 확인:
+Kafka 로그
+{"eventType":"Canceled","timestamp":"20210223233224","id":1,"productId":null,"statusCode":null,"me":true}
+{"eventType":"Canceled","timestamp":"20210223233305","id":1,"productId":1,"statusCode":2,"me":true}
+{"eventType":"Canceled","timestamp":"20210223233316","id":1,"productId":null,"statusCode":null,"me":true}
+
+delivery 상태값 변경
+
+http http://localhost:8082/deliveries/1
+
+Date: Tue, 23 Feb 2021 23:55:36 GMT
+Transfer-Encoding: chunked
+
+{
+    "_links": {
+        "delivery": {
+            "href": "http://localhost:8082/deliveries/1"
+        }, 
+        "self": {
+            "href": "http://localhost:8082/deliveries/1"
+        }
+    }, 
+    "orderId": 1, 
+    "productId": null, 
+    "statusCode": 3
+}
+
+
+
+```
+```
+- 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 배송 시스템이 장애가 나면 배송취소가 불가능한 것을 확인:
 
 ```
 # 배송(delivery) 서비스 ctrl+c
@@ -282,8 +339,8 @@ http localhost:8081/reservations productId=1 statusCode=1 #Fail
 
 # 배송(delivery) run
 
-# 예약 성공
-http localhost:8081/reservations productId=1 statusCode=1 #Success
+# 배송취소 성공 (delivery 상태값 3으로 업데이트)
+http http://localhost:8081/reservations id=1 #Success
 ```
 
 - 또한 과도한 요청시에 서비스 장애가 도미노 처럼 벌어질 수 있어 대응을 마련하였다. (서킷브레이커, 폴백 처리는 운영단계에서 설명한다.)
