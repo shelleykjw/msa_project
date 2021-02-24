@@ -103,6 +103,8 @@ Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한
   - 상품은 기본적인 수량변동만 취합
 http://www.msaez.io/#/storming/mE0rA9pV1tPfOibSknVbRBhRqkY2/every/ccf36caac98aab7713fb43c28040d31f
 
+<img width="658" alt="스크린샷 2021-02-24 오전 2 10 08" src="https://user-images.githubusercontent.com/34236968/108880349-8ddfaf80-7645-11eb-9b80-b7737dd1896c.png">
+
 ## Hexagonal Architecture Diagram
 
 Reservation과 Delivery는 동기식 조건을 위해 REST, 모든 비동기 통신은 Kafka MQ로 통신한다.
@@ -110,7 +112,7 @@ myPage는 수정이 아닌 조회 조건이므로 Kafka publisher는 없이 List
 
 ![image](https://user-images.githubusercontent.com/57124820/108940533-de332d80-7696-11eb-944f-fb88dd8fe969.png)
 
-<img width="658" alt="스크린샷 2021-02-24 오전 2 10 08" src="https://user-images.githubusercontent.com/34236968/108880349-8ddfaf80-7645-11eb-9b80-b7737dd1896c.png">
+
 
 # 구현:
 
