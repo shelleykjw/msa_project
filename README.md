@@ -146,13 +146,33 @@ public class Reservation {
         reserved.publishAfterCommit();
     }
 
-    @PreUpdate
+@PreUpdate
     public void onPreUpdate() throws Exception{
         Canceled canceled = new Canceled();
         BeanUtils.copyProperties(this, canceled);
         canceled.publishAfterCommit();
 
-       Delivery delivery = ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(3L);
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
+        //Delivery delivery = new Delivery();
+        // mappings goes here
+        book.external.Delivery delivery = new book.external.Delivery();
+
+        delivery.setId(getId()); //reservation Id
+        delivery.setOrderId(getId()); //reservation Id
+        delivery.setProductId(getProductId());
+        delivery.setStatusCode(3);
+        Thread.sleep(2000);//2초 슬립
+       ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(delivery);
+
+       System.out.println("##### TEST 2 : " + delivery.getStatusCode());
+
+       if(delivery.getStatusCode() == 3){
+            
+       }
+
+
     }
 
 
@@ -241,23 +261,27 @@ public interface DeliveryService {
 
 ```
 
-- 주문을 받은 직후(@PostPersist) 결제를 요청하도록 처리
+- 예약취소 받은 직후(@PreUpdate) 배송를 수정하도록 처리
 ```
 # Reservation.java (Entity)
-    @PreUpdate
+  @PreUpdate
     public void onPreUpdate() throws Exception{
         Canceled canceled = new Canceled();
         BeanUtils.copyProperties(this, canceled);
         canceled.publishAfterCommit();
 
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
         //Delivery delivery = new Delivery();
+        // mappings goes here
         book.external.Delivery delivery = new book.external.Delivery();
 
         delivery.setId(getId()); //reservation Id
         delivery.setOrderId(getId()); //reservation Id
         delivery.setProductId(getProductId());
         delivery.setStatusCode(3);
-
+        Thread.sleep(2000);//2초 슬립
        ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(delivery);
 
        System.out.println("##### TEST 2 : " + delivery.getStatusCode());
@@ -307,7 +331,7 @@ delivery 상태
 
 ```
 
-- 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 결제 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
+- 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 예약 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
 
 
 ```
