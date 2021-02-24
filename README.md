@@ -95,6 +95,7 @@ Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한
 * Revision 1
   - 주문(order)/배송(delivery)/상품(product)로 Bounded Context 설정
   - 주문에서 event별 상태값을 포함한 트랜젝션 중심로직을 설정하고 product에서 전체 재고 수량을 관리
+
 ![v2](https://user-images.githubusercontent.com/57124820/108931766-90fd8e80-768b-11eb-8d0a-e77ba14ff280.png)
 * MSAEZ 모델링 이벤트스토밍 최종 결과:
   - 예약(reservation)/배송(delivery)/상품(product)/개인화면(myPage)로 Bounded Context 설정
@@ -177,8 +178,7 @@ public class Reservation {
 
         Delivery delivery = new Delivery();
 
-        ReservationApplication.applicationContext.getBean(DeliveryService.class)
-        .cancel(delibery);
+        ReservationApplication.applicationContext.getBean(DeliveryService.class).cancel(delibery);
     }
 
 
@@ -226,7 +226,7 @@ public interface ReservationRepository extends PagingAndSortingRepository<Reserv
 http localhost:8081/reservations productId=1 statusCode=1
 
 # product 서비스의 입고처리
-http localhost:8083/products stock=10
+http localhost:8083/products id=1 stock=10
 
 # 도서 예약 상태 확인
 http localhost:8084/myPages
@@ -395,7 +395,7 @@ transfer-Encoding: chunked
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 배송 시스템이 장애가 나면 배송취소가 불가능한 것을 확인:
 
 ```
-# 배송(delivery) 서비스 ctrl+c
+# 배송(delivery) 서비스
 
 # 예약 실패
 http localhost:8081/reservations productId=1 statusCode=1 #Fail
@@ -450,6 +450,15 @@ http://a0eea00be58a14c0bba2455d35b46c96-698110762.ap-northeast-2.elb.amazonaws.c
 <img width="920" alt="스크린샷 2021-02-24 오전 11 16 29" src="https://user-images.githubusercontent.com/57124820/108938245-0caf0980-7693-11eb-9cf3-dcc1b0f1a3d3.png">
 <img width="926" alt="스크린샷 2021-02-24 오전 11 17 01" src="https://user-images.githubusercontent.com/57124820/108938246-0caf0980-7693-11eb-9c1d-23dc9708d1f8.png">
 
+### spring-boot-starter-security 적용
+Gateway 서비스의 Pom.xml에 spring-boot-starter-security dependency 추가
+```
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+```
+
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 
 배송이 취소된 후에 변경된 상태값은 비동기방식으로 고객이 예약한 도서의 배송상태를 확인할 수 있다.
@@ -461,13 +470,7 @@ http://a0eea00be58a14c0bba2455d35b46c96-698110762.ap-northeast-2.elb.amazonaws.c
         try {
             if (canceled.isMe()) {
                 MyPage myPage = myPageRepository.findById(canceled.getId()).get();
-                // for(  : List){
-                //     // view 객체에 이벤트의 eventDirectValue 를 set 함
-                //     // view 레파지 토리에 save
-                //     Repository.save();
-                // }
                 myPage.setStatusCode(canceled.getStatusCode());
-
                 myPageRepository.save(myPage);
             }
         }catch (Exception e){
