@@ -91,6 +91,8 @@ Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한
   ![image](https://user-images.githubusercontent.com/487999/79684159-3543c700-826a-11ea-8d5f-a3fc0c4cad87.png)
 
 ## Event Storming 결과
+
+![v2](https://user-images.githubusercontent.com/57124820/108931766-90fd8e80-768b-11eb-8d0a-e77ba14ff280.png)
 * MSAEZ 모델링 이벤트스토밍 결과:
 http://www.msaez.io/#/storming/mE0rA9pV1tPfOibSknVbRBhRqkY2/every/ccf36caac98aab7713fb43c28040d31f
 
