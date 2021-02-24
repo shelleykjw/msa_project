@@ -347,7 +347,34 @@ http http://localhost:8081/reservations id=1 #Success
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 
-??
+배송이 취소된 후에 변경된 상태값은 비동기방식으로 고객이 예약한 도서의 배송상태를 확인할 수 있다.
+이를 위해 delivery canceled를 포함한 event가 발생할시 모든 상태값  변경은 updateStock page뷰로 전송한다
+
+```
+    @StreamListener(KafkaProcessor.INPUT)
+    public void whenCanceled_then_DELETE_1(@Payload Canceled canceled) {
+        try {
+            if (canceled.isMe()) {
+                MyPage myPage = myPageRepository.findById(canceled.getId()).get();
+                // for(  : List){
+                //     // view 객체에 이벤트의 eventDirectValue 를 set 함
+                //     // view 레파지 토리에 save
+                //     Repository.save();
+                // }
+                myPage.setStatusCode(canceled.getStatusCode());
+
+                myPageRepository.save(myPage);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+    
+    이외에도 동일한 로직으로 예약한 상품의 배송상태값 변화를 모두 myPage에서 조회 가능하게 하였습니다. 
+    whenReserved_then_CREATE_1 (예약실행)
+    whenDelivered_then_UPDATE_1 (배송상태변경)
+    
+```
 
 # 운영
 
