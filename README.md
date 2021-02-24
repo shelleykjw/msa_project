@@ -3,7 +3,7 @@
 Lv2 Intensive Coursework의 일환으로 MSA로 시스템을 구성하기 위한 계획단계부터 분석/설계/구현/운영까지의 프로젝트를 관리함
 
 # 서비스 시나리오
-도서대여 시스템 구현하기
+도서대여 시스템 구현
 
 ### 기능적 요구사항
 1. 사서가 도서를 입고한다.
@@ -197,9 +197,10 @@ public class Reservation {
 
 }
 
-
 ```
+
 - Entity Pattern 과 Repository Pattern을 적용하여 JPA 를 통하여 다양한 데이터 소스 유형(H2/SQLite)에 대한 별도 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다
+
 ```
 package book;
 
@@ -208,7 +209,9 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 public interface ReservationRepository extends PagingAndSortingRepository<Reservation, Long>{
 }
 ```
+
 - 적용 후 REST API 의 테스트
+
 ```
 # reservation 서비스의 예약처리
 http localhost:8081/reservations productId=1 statusCode=1
@@ -220,7 +223,6 @@ http localhost:8083/products stock=10
 http localhost:8084/myPages
 
 ```
-
 
 ## 폴리글랏 퍼시스턴스
 
@@ -297,8 +299,12 @@ public interface DeliveryService {
 
     }
 ```
+
 onPreUpdate 실행시 로그
+
 ##### TEST 2 : 3
+
+```
 Hibernate: 
     update
         reservation_table 
@@ -312,9 +318,11 @@ Kafka 로그
 {"eventType":"Canceled","timestamp":"20210223233224","id":1,"productId":null,"statusCode":null,"me":true}
 {"eventType":"Canceled","timestamp":"20210223233305","id":1,"productId":1,"statusCode":2,"me":true}
 {"eventType":"Canceled","timestamp":"20210223233316","id":1,"productId":null,"statusCode":null,"me":true}
+```
 
 delivery 상태값 변경
 
+```
 http http://localhost:8082/deliveries/1
 
 Date: Tue, 23 Feb 2021 23:55:36 GMT
@@ -333,10 +341,47 @@ Transfer-Encoding: chunked
     "productId": null, 
     "statusCode": 3
 }
-
-
-
 ```
+```
+동기호출 서비스 중지시
+HTTP/1.1 500 
+Connection: close
+Content-Type: application/json;charset=UTF-8
+Date: Wed, 24 Feb 2021 01:39:44 GMT
+Transfer-Encoding: chunked
+
+{
+    "error": "Internal Server Error", 
+    "message": "Could not commit JPA transaction; nested exception is javax.persistence.RollbackException: Error while committing the transaction", 
+    "path": "/reservations", 
+    "status": 500, 
+    "timestamp": "2021-02-24T01:39:44.061+0000"
+}
+
+
+{"eventType":"Canceled","timestamp":"20210224013921","id":1,"productId":1,"statusCode":2,"me":true}
+{"eventType":"Canceled","timestamp":"20210224013944","id":1,"productId":1,"statusCode":2,"me":true}
+
+# delivery 재기동시 반영
+
+{"eventType":"Delivered","timestamp":"20210224014034","id":1,"statusCode":2,"orderId":null,"productId":null,"me":true}
+
+# 배송상태값 변경
+transfer-Encoding: chunked
+
+{
+    "_links": {
+        "delivery": {
+            "href": "http://localhost:8082/deliveries/1"
+        }, 
+        "self": {
+            "href": "http://localhost:8082/deliveries/1"
+        }
+    }, 
+    "orderId": null, 
+    "productId": null, 
+    "statusCode": 2
+}
 ```
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, 배송 시스템이 장애가 나면 배송취소가 불가능한 것을 확인:
 
@@ -346,13 +391,55 @@ Transfer-Encoding: chunked
 # 예약 실패
 http localhost:8081/reservations productId=1 statusCode=1 #Fail
 
+HTTP/1.1 500 
+Connection: close
+Content-Type: application/json;charset=UTF-8
+Date: Wed, 24 Feb 2021 01:39:44 GMT
+Transfer-Encoding: chunked
+
+{
+    "error": "Internal Server Error", 
+    "message": "Could not commit JPA transaction; nested exception is javax.persistence.RollbackException: Error while committing the transaction", 
+    "path": "/reservations", 
+    "status": 500, 
+    "timestamp": "2021-02-24T01:39:44.061+0000"
+}
+
 # 배송(delivery) run
 
 # 배송취소 성공 (delivery 상태값 3으로 업데이트)
 http http://localhost:8081/reservations id=1 #Success
+
+{"eventType":"Delivered","timestamp":"20210224014034","id":1,"statusCode":2,"orderId":null,"productId":null,"me":true}
+
+#delivery 상태값 반영
+{
+    "_links": {
+        "delivery": {
+            "href": "http://localhost:8082/deliveries/1"
+        }, 
+        "self": {
+            "href": "http://localhost:8082/deliveries/1"
+        }
+    }, 
+    "orderId": null, 
+    "productId": null, 
+    "statusCode": 2
+}
+
 ```
 
-- 또한 과도한 요청시에 서비스 장애가 도미노 처럼 벌어질 수 있어 대응을 마련하였다. (서킷브레이커, 폴백 처리는 운영단계에서 설명한다.)
+- 또한 과도한 요청시에 서비스 장애가 도미노 처럼 벌어질 수 있어 대응을 마련하였다. (서킷브레이커, 폴백 처리는 아래에서 설명한다.)
+
+### Gateway
+
+gateway로 진입점 통일하였다.
+http://a0eea00be58a14c0bba2455d35b46c96-698110762.ap-northeast-2.elb.amazonaws.com:8080/reservations, deliveries, products, mypages...
+
+<img width="923" alt="스크린샷 2021-02-24 오전 11 17 16" src="https://user-images.githubusercontent.com/57124820/108938233-0882ec00-7693-11eb-95c4-0a57124f54f9.png">
+<img width="926" alt="스크린샷 2021-02-24 오전 11 17 43" src="https://user-images.githubusercontent.com/57124820/108938238-0a4caf80-7693-11eb-8f80-fe04ac76309f.png">
+<img width="920" alt="스크린샷 2021-02-24 오전 11 16 29" src="https://user-images.githubusercontent.com/57124820/108938245-0caf0980-7693-11eb-9cf3-dcc1b0f1a3d3.png">
+<img width="926" alt="스크린샷 2021-02-24 오전 11 17 01" src="https://user-images.githubusercontent.com/57124820/108938246-0caf0980-7693-11eb-9c1d-23dc9708d1f8.png">
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 
@@ -385,19 +472,13 @@ http http://localhost:8081/reservations id=1 #Success
     
 ```
 
-# 운영
-
-## CI/CD 설정
-
-??
-
 ## 동기식 호출 / 서킷 브레이킹 / 장애격리
 
 * 서킷 브레이킹 프레임워크의 선택: Spring FeignClient + Hystrix 옵션을 사용하여 구현함
 
 시나리오는 예약(reservation) > 배송(delivery) 연결을 RESTful Req/Res 동기식으로 구현이 되어있고, 예약 취소 요청이 과도할 경우 CB 를 통하여 장애격리.
 
-- Hystrix 설정: 요청처리 쓰레드에서 처리시간이 777ms 기준 CB 차단 설정
+- Hystrix 설정: 요청처리 쓰레드에서 처리시간이 610ms 기준 CB 차단 설정
 
 ```
 # application.yml
@@ -408,40 +489,25 @@ feign:
 hystrix:
   command:
     default:
-      execution.isolation.thread.timeoutInMilliseconds: 777
+      execution.isolation.thread.timeoutInMilliseconds: 610
+
 
 ```
 
-### 오토스케일 아웃
 
-HPA TARGET <unknown>/10% 이슈가 있었으나 resouces 제한을 걸면 가능 - 트러블슈팅
-  
-```
-# deployment.yml - resourses limits 10 낮게 설정
+# 운영
 
-resources:
-requests:
-  cpu: "10m"
-limits:
-  cpu: "10m"
-              
-kubectl autoscale deploy pay --min=1 --max=10 --cpu-percent=10 # cpu-percent를 10%로 낮게 설정
+## CI/CD 설정
+Github 내 소스  Commit 및 fork하여 소스 수정
+![gituse](https://user-images.githubusercontent.com/57124820/108937723-2439c280-7692-11eb-8b8b-91202da7053a.png)
 
-kubectl get hpa # HPA 확인 max 10으로 autoscale 확인
-# reservation   Deployment/reservation   107%/10%   1         10        10         17m
+## SLA 준수
 
-kubectl get deploy -w # 모니터링 reservation이 max 10으로 autoscale 확인
+### 셀프힐링
 
-# NAME          READY   UP-TO-DATE   AVAILABLE   AGE
-# delivery      1/1     1            1           16h
-# gateway       1/1     1            1           16h
-# mypage        1/1     1            1           16h
-# product       1/1     1            1           16h
-# reservation   10/10   10           10          13m
-# siege         1/1     1            1           15h
-```
+##### Liveness/Readiness Probe
 
-### readiness probe
+유효하지 않은 path로 상태 체크 후 pod 확인(READY / RESTARTS)
 ```
 # deployment.yml - 유효하지 않은 path 설정
 readinessProbe:
@@ -526,6 +592,34 @@ Events:
 
 ```
 
+### 오토스케일 아웃
+
+HPA TARGET <unknown>/10% 이슈가 있었으나 resouces 제한으로 가능 - 트러블슈팅
+  
+```
+# deployment.yml - resourses limits 10 낮게 설정
+
+resources:
+requests:
+  cpu: "10m"
+limits:
+  cpu: "10m"
+              
+kubectl autoscale deploy pay --min=1 --max=10 --cpu-percent=10 # cpu-percent를 10%로 낮게 설정
+
+kubectl get hpa # HPA 확인 max 10으로 autoscale 확인
+# reservation   Deployment/reservation   107%/10%   1         10        10         17m
+
+kubectl get deploy -w # 모니터링 reservation이 max 10으로 autoscale 확인
+
+# NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+# delivery      1/1     1            1           16h
+# gateway       1/1     1            1           16h
+# mypage        1/1     1            1           16h
+# product       1/1     1            1           16h
+# reservation   10/10   10           10          13m
+# siege         1/1     1            1           15h
+```
 
 # 기타 - 시도한 것들..
 
@@ -533,3 +627,5 @@ Events:
 ```
 siege -c255 -t3600S -r10 --content-type "application/json" 'http://localhost:8081/reservations POST {"productId": 1, "statusCode": 1}'
 ```
+
+<img width="662" alt="스크린샷 2021-02-24 오전 1 41 22" src="https://user-images.githubusercontent.com/57124820/108938257-133d8100-7693-11eb-83e2-083a09db43dd.png">
